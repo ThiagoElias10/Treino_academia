@@ -9,6 +9,7 @@ node_modules/
 .expo/
 dist/
 npm-debug.log*
+boot.log
 
 # IDE
 .idea/
