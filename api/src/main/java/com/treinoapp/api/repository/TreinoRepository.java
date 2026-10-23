@@ -1,0 +1,7 @@
+package com.treinoapp.api.repository;
+
+import com.treinoapp.api.model.Treino;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface TreinoRepository extends JpaRepository<Treino, Long> {
+}
