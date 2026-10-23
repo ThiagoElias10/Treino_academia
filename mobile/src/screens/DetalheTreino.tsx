@@ -42,7 +42,7 @@ const VAZIO: FormEx = {
 
 export default function DetalheTreino({ treino, onVoltar }: Props) {
   const [exercicios, setExercicios] = useState<Exercicio[]>(treino.exercicios ?? []);
-  const [concluidos, setConcluidos] = useState<Set<number>>(new Set());
+  const [concluido, setConcluido] = useState<Set<number>>(new Set());
   const [formAberto, setFormAberto] = useState(false);
   const [editando, setEditando] = useState<Exercicio | null>(null);
   const [form, setForm] = useState<FormEx>(VAZIO);
@@ -99,18 +99,18 @@ export default function DetalheTreino({ treino, onVoltar }: Props) {
 
   async function excluirExercicio() {
     if (!aExcluir || salvando) return;
-    try {
-      setSalvando(true);
-      await api.excluirExercicio(aExcluir.id);
-      setExercicios((lista) => lista.filter((item) => item.id !== aExcluir.id));
-      setAExcluir(null);
-    } finally {
-      setSalvando(false);
-    }
+    await api.excluirExercicio(aExcluir.id);
+    setExercicios((lista) => lista.filter((item) => item.id !== aExcluir.id));
+    setAExcluir(null);
+  }
+
+  function concluirTreino() {
+    const todos = exercicios.map((item) => item.id);
+    setConcluido(new Set([...todos]));
   }
 
   function alternarConcluido(id: number) {
-    setConcluidos((conjunto) => {
+    setConcluido((conjunto) => {
       const novo = new Set(conjunto);
       if (novo.has(id)) {
         novo.delete(id);
@@ -120,6 +120,9 @@ export default function DetalheTreino({ treino, onVoltar }: Props) {
       return novo;
     });
   }
+
+  const total = exercicios.length;
+  const feitos = exercicios.filter((item) => concluido.has(item.id)).length;
 
   return (
     <View style={estilos.tela}>
@@ -135,70 +138,100 @@ export default function DetalheTreino({ treino, onVoltar }: Props) {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={estilos.conteudo} stickyHeaderIndices={[0]}>
-        <View style={estilos.tag}>
-          <Text style={estilos.tagTexto}>{treino.nome}</Text>
+      <ScrollView contentContainerStyle={estilos.conteudo}>
+        <View style={estilos.cabecalhoTreino}>
+          <Text style={estilos.textoFeitas}>CONTAS NO TREINO</Text>
+          <Text style={estilos.textoFeitas}>
+            {String(feitos).padStart(2, "0")}/{String(total).padStart(2, "0")} concluídos
+          </Text>
+        </View>
+
+        <View style={estilos.chips}>
+          <View style={estilos.chipLima}>
+            <Text style={estilos.textoChipLima}>ATIVO DIAS: SEMANA INTEIRA</Text>
+          </View>
         </View>
 
         {treino.descricao ? (
           <View style={estilos.descricao}>
-            <Text style={estilos.descricaoTexto}>{treino.descricao}</Text>
+            <Text style={estilos.textoDescricao}>{treino.descricao}</Text>
           </View>
         ) : null}
+
+        <Text style={estilos.subtitulo}>Seu treino, na ordem</Text>
 
         <FlatList
           data={exercicios}
           keyExtractor={(item) => String(item.id)}
           scrollEnabled={false}
-          renderItem={({ item }) => (
-            <View style={estilos.exercicio}>
-              <Pressable
-                style={estilos.exercicioToque}
-                onPress={() => abrirEdicao(item)}
-              >
-                <Image
-                  source={{
-                    uri:
-                      item.imagemUrl && item.imagemUrl.trim().length > 0
-                        ? item.imagemUrl
-                        : "https://placehold.co/120x120/000000/FFFFFF/png?text=%20",
-                  }}
-                  style={estilos.foto}
-                />
-                <View style={estilos.info}>
-                  <Text style={estilos.nomeExercicio}>{item.nome}</Text>
-                  <Text style={estilos.detalhe}>
-                    {item.series}x {item.repeticoes} • {item.carga ?? ""}
-                  </Text>
-                  {item.grupoMuscular ? (
-                    <Text style={estilos.grupo}>{item.grupoMuscular}</Text>
-                  ) : null}
-                </View>
+          renderItem={({ item, index }) => {
+            const foto = item.imagemUrl;
+            return (
+              <View style={estilos.exercicio}>
                 <Pressable
-                  style={[estilos.check, concluidos.has(item.id) && estilos.checkAtivo]}
-                  onPress={() => alternarConcluido(item.id)}
-                  hitSlop={8}
+                  style={estilos.toqueExercicio}
+                  onPress={() => abrirEdicao(item)}
                 >
-                  <Text
-                    style={[
-                      estilos.checkTexto,
-                      concluidos.has(item.id) && estilos.checkTextoAtivo,
-                    ]}
-                  >
-                    ✓
+                  <Text style={estilos.indice}>
+                    {String(index + 1).padStart(2, "0")}
                   </Text>
+                  <Image
+                    source={{
+                      uri:
+                        foto && foto.trim()
+                          ? foto
+                          : "https://placehold.co/240x240/151610/3A3B2E/png?text=%20",
+                    }}
+                    style={estilos.foto}
+                  />
+                  <View style={estilos.info}>
+                    <Text style={estilos.nome}>{item.nome}</Text>
+                    <View style={estilos.linhaMeta}>
+                      <Text style={estilos.rotuloMeta}>SERIES</Text>
+                      <Text style={estilos.meta}>
+                        {item.series} × {item.repeticoes}
+                      </Text>
+                      <Text style={estilos.rotuloMeta}>KGS</Text>
+                      <Text style={estilos.meta}>{item.carga ?? "—"}</Text>
+                    </View>
+                    <Text style={estilos.nota}>
+                      {item.observacao ??
+                        (item.grupoMuscular
+                          ? `${item.grupoMuscular}: cadência controlada, mantém a respiração.`
+                          : "Cadência controlada, mantém a respiração.")}
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={[
+                      estilos.check,
+                      concluido.has(item.id) && estilos.checkAtivo,
+                    ]}
+                    onPress={() => alternarConcluido(item.id)}
+                    hitSlop={8}
+                  />
                 </Pressable>
-              </Pressable>
-            </View>
-          )}
+              </View>
+            );
+          }}
         />
 
-        {exercicios.length === 0 ? (
+        {total === 0 ? (
           <Text style={estilos.vazio}>
             Nenhum exercício. Toque em ＋ para adicionar.
           </Text>
         ) : null}
+
+        <View style={estilos.espacoBarra} />
       </ScrollView>
+
+      <View style={estilos.barraConcluir}>
+        <Pressable style={estilos.botaoConcluir} onPress={concluirTreino}>
+          <Text style={estilos.textoConcluir}>Marcar todos como feitos</Text>
+          <Text style={estilos.contadorConcluir}>
+            {String(feitos).padStart(2, "0")} ✓
+          </Text>
+        </Pressable>
+      </View>
 
       <Modal visible={formAberto} animationType="slide">
         <View style={estilos.telaModal}>
@@ -210,8 +243,8 @@ export default function DetalheTreino({ treino, onVoltar }: Props) {
             <TextInput
               value={form.nome}
               onChangeText={(v) => setForm({ ...form, nome: v })}
-              placeholder="Ex.: Rosca direita na barra"
-              placeholderTextColor={cores.textoSuave}
+              placeholder="Ex.: Rosca direta na barra"
+              placeholderTextColor={cores.cinza}
               style={estilos.input}
             />
             <View style={estilos.linhaInputs}>
@@ -242,8 +275,8 @@ export default function DetalheTreino({ treino, onVoltar }: Props) {
             <TextInput
               value={form.carga}
               onChangeText={(v) => setForm({ ...form, carga: v })}
-              placeholder="Ex.: 3kg"
-              placeholderTextColor={cores.textoSuave}
+              placeholder="Ex.: 12 kg (10/15 rs)"
+              placeholderTextColor={cores.cinza}
               style={estilos.input}
             />
             <Text style={estilos.label}>GRUPO MUSCULAR</Text>
@@ -251,7 +284,7 @@ export default function DetalheTreino({ treino, onVoltar }: Props) {
               value={form.grupoMuscular}
               onChangeText={(v) => setForm({ ...form, grupoMuscular: v })}
               placeholder="Ex.: Triceps"
-              placeholderTextColor={cores.textoSuave}
+              placeholderTextColor={cores.cinza}
               style={estilos.input}
             />
             <Text style={estilos.label}>URL DA IMAGEM</Text>
@@ -259,17 +292,17 @@ export default function DetalheTreino({ treino, onVoltar }: Props) {
               value={form.imagemUrl}
               onChangeText={(v) => setForm({ ...form, imagemUrl: v })}
               placeholder="Cole aqui a URL da imagem"
-              placeholderTextColor={cores.textoSuave}
+              placeholderTextColor={cores.cinza}
               style={estilos.input}
               autoCapitalize="none"
               autoCorrect={false}
             />
-            <Text style={estilos.label}>OBSERVAÇÃO</Text>
+            <Text style={estilos.label}>OBSERVAÇÃO / NOTA</Text>
             <TextInput
               value={form.observacao}
               onChangeText={(v) => setForm({ ...form, observacao: v })}
-              placeholder="Ex.: descanso 1min30"
-              placeholderTextColor={cores.textoSuave}
+              placeholder="Ex.: Descanse 105 s entre as séries."
+              placeholderTextColor={cores.cinza}
               style={estilos.input}
               multiline
             />
@@ -277,27 +310,27 @@ export default function DetalheTreino({ treino, onVoltar }: Props) {
           <View style={estilos.linhaBotoes}>
             {editando ? (
               <Pressable
-                style={estilos.botaoAcaoQuadrado}
+                style={estilos.botaoQuadrado}
                 onPress={() => setAExcluir(editando)}
               >
-                <Text style={estilos.iconeAcao}>🗑</Text>
+                <Text style={estilos.iconeExcluir}>🗑</Text>
               </Pressable>
             ) : null}
             <Pressable
-              style={estilos.botaoSecundario}
+              style={estilos.botaoNeutro}
               onPress={() => setFormAberto(false)}
             >
-              <Text style={estilos.textoBotaoT}>CANCELAR</Text>
+              <Text style={estilos.textoBotaoNeutro}>CANCELAR</Text>
             </Pressable>
             <Pressable
-              style={estilos.botaoPrincipal}
+              style={estilos.botaoAcao}
               onPress={salvarExercicio}
               disabled={salvando}
             >
               {salvando ? (
-                <ActivityIndicator color="#000000" />
+                <ActivityIndicator color={cores.preto} />
               ) : (
-                <Text style={estilos.textoBotaoP}>SALVAR</Text>
+                <Text style={estilos.textoBotaoAcao}>SALVAR</Text>
               )}
             </Pressable>
           </View>
@@ -312,13 +345,13 @@ export default function DetalheTreino({ treino, onVoltar }: Props) {
             </Text>
             <View style={estilos.linhaBotoes}>
               <Pressable
-                style={estilos.botaoSecundario}
+                style={estilos.botaoNeutro}
                 onPress={() => setAExcluir(null)}
               >
-                <Text style={estilos.textoBotaoT}>CANCELAR</Text>
+                <Text style={estilos.textoBotaoNeutro}>CANCELAR</Text>
               </Pressable>
-              <Pressable style={estilos.botaoPrincipal} onPress={excluirExercicio}>
-                <Text style={estilos.textoBotaoP}>EXCLUIR</Text>
+              <Pressable style={estilos.botaoAcao} onPress={excluirExercicio}>
+                <Text style={estilos.textoBotaoAcao}>EXCLUIR</Text>
               </Pressable>
             </View>
           </View>
@@ -332,130 +365,191 @@ const estilos = StyleSheet.create({
   tela: {
     flex: 1,
     backgroundColor: cores.fundo,
-    paddingTop: 48,
   },
   cabecalho: {
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
     paddingHorizontal: 20,
+    paddingTop: 54,
     paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: cores.borda,
   },
   voltar: {
-    color: cores.branco,
-    fontSize: 26,
+    color: cores.texto,
+    fontSize: 24,
   },
   titulo: {
-    color: cores.branco,
+    color: cores.texto,
     fontSize: fonte.titulo,
-    fontWeight: "700",
+    fontWeight: "800",
     flex: 1,
   },
+  textoBotaoAdd: {
+    color: cores.preto,
+    fontSize: 20,
+    fontWeight: "800",
+  },
   botaoAdd: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1.5,
-    borderColor: cores.branco,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: cores.lima,
     alignItems: "center",
     justifyContent: "center",
   },
-  textoBotaoAdd: {
-    color: cores.branco,
-    fontSize: 18,
-    fontWeight: "700",
-  },
   conteudo: {
-    padding: 20,
-    gap: 12,
+    paddingHorizontal: 20,
+    gap: 14,
   },
-  tag: {
+  cabecalhoTreino: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  textoFeitas: {
+    color: cores.cinza,
+    fontSize: fonte.pequena,
+  },
+  chips: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  chipLima: {
     alignSelf: "flex-start",
-    backgroundColor: cores.branco,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: cores.lima,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
   },
-  tagTexto: {
+  textoChipLima: {
     color: cores.preto,
-    fontWeight: "700",
-    fontSize: 12,
-    textTransform: "uppercase",
+    fontSize: fonte.micro,
+    fontWeight: "800",
+    letterSpacing: 1,
   },
   descricao: {
     backgroundColor: cores.card,
-    borderColor: cores.borda,
     borderWidth: 1,
-    borderRadius: 10,
+    borderColor: cores.borda,
+    borderRadius: 12,
     padding: 14,
   },
-  descricaoTexto: {
+  textoDescricao: {
     color: cores.texto,
     fontSize: fonte.normal,
     lineHeight: 20,
   },
+  subtitulo: {
+    color: cores.texto,
+    fontSize: fonte.titulo,
+    fontWeight: "800",
+    marginTop: 8,
+  },
   exercicio: {
     backgroundColor: cores.card,
-    borderColor: cores.borda,
     borderWidth: 1,
-    borderRadius: 10,
+    borderColor: cores.borda,
+    borderRadius: 12,
   },
-  exercicioToque: {
+  toqueExercicio: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 10,
+    padding: 12,
+  },
+  indice: {
+    color: cores.lima,
+    fontSize: fonte.normal,
+    fontWeight: "800",
+    width: 24,
   },
   foto: {
-    width: 64,
-    height: 64,
+    width: 52,
+    height: 52,
     borderRadius: 8,
-    backgroundColor: cores.preto,
+    backgroundColor: cores.card2,
   },
   info: {
     flex: 1,
   },
-  nomeExercicio: {
-    color: cores.branco,
-    fontSize: fonte.normal,
+  nome: {
+    color: cores.texto,
     fontWeight: "700",
+    fontSize: fonte.normal,
   },
-  detalhe: {
-    color: cores.textoSuave,
-    fontSize: 12,
-    marginTop: 2,
+  linhaMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
   },
-  grupo: {
-    color: cores.textoSuave,
-    fontSize: 12,
-    marginTop: 2,
+  rotuloMeta: {
+    color: cores.cinza,
+    fontSize: 9,
+    letterSpacing: 1,
+  },
+  meta: {
+    color: cores.texto,
+    fontSize: fonte.pequena,
+    fontWeight: "700",
+    marginRight: 10,
+  },
+  nota: {
+    color: cores.cinza,
+    fontSize: fonte.micro,
+    lineHeight: 15,
+    marginTop: 4,
   },
   check: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     borderWidth: 1.5,
-    borderColor: cores.branco,
-    alignItems: "center",
-    justifyContent: "center",
+    borderColor: cores.borda,
   },
   checkAtivo: {
-    backgroundColor: cores.branco,
-  },
-  checkTexto: {
-    color: cores.branco,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  checkTextoAtivo: {
-    color: cores.preto,
+    backgroundColor: cores.lima,
+    borderColor: cores.lima,
   },
   vazio: {
-    color: cores.textoSuave,
+    color: cores.cinza,
     textAlign: "center",
-    marginTop: 20,
+    marginTop: 16,
+  },
+  espacoBarra: {
+    height: 90,
+  },
+  barraConcluir: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 20,
+    paddingBottom: 34,
+    backgroundColor: "rgba(11,12,9,0.95)",
+    borderTopWidth: 1,
+    borderTopColor: cores.borda,
+  },
+  botaoConcluir: {
+    backgroundColor: cores.lima,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+  },
+  textoConcluir: {
+    color: cores.preto,
+    fontWeight: "800",
+    fontSize: fonte.normal,
+    letterSpacing: 0.4,
+  },
+  contadorConcluir: {
+    color: cores.preto,
+    fontWeight: "800",
+    fontSize: fonte.normal,
   },
   telaModal: {
     flex: 1,
@@ -464,28 +558,28 @@ const estilos = StyleSheet.create({
     paddingTop: 60,
   },
   tituloModal: {
-    color: cores.branco,
+    color: cores.texto,
     fontSize: fonte.grande,
     fontWeight: "800",
     letterSpacing: 2,
     marginBottom: 12,
   },
   form: {
-    gap: 2,
     paddingBottom: 12,
   },
   label: {
-    color: cores.textoSuave,
-    fontSize: 11,
+    color: cores.cinza,
+    fontSize: fonte.pequena,
     letterSpacing: 1,
     marginBottom: 6,
     marginTop: 12,
   },
   input: {
     borderWidth: 1,
-    borderColor: cores.branco,
+    borderColor: cores.borda,
+    backgroundColor: cores.card,
     borderRadius: 8,
-    color: cores.branco,
+    color: cores.texto,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
@@ -498,40 +592,40 @@ const estilos = StyleSheet.create({
     gap: 12,
     marginTop: 16,
   },
-  botaoAcaoQuadrado: {
-    width: 50,
+  botaoQuadrado: {
+    width: 48,
     borderWidth: 1,
-    borderColor: cores.branco,
+    borderColor: cores.borda,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
-  iconeAcao: {
-    fontSize: 20,
+  iconeExcluir: {
+    fontSize: 18,
   },
-  botaoSecundario: {
+  botaoNeutro: {
     flex: 1,
     borderWidth: 1,
-    borderColor: cores.branco,
-    borderRadius: 8,
+    borderColor: cores.borda,
+    borderRadius: 999,
     paddingVertical: 12,
     alignItems: "center",
   },
-  botaoPrincipal: {
+  botaoAcao: {
     flex: 1,
-    backgroundColor: cores.branco,
-    borderRadius: 8,
+    backgroundColor: cores.lima,
+    borderRadius: 999,
     paddingVertical: 12,
     alignItems: "center",
   },
-  textoBotaoT: {
-    color: cores.branco,
+  textoBotaoNeutro: {
+    color: cores.texto,
     fontWeight: "700",
     letterSpacing: 1,
   },
-  textoBotaoP: {
+  textoBotaoAcao: {
     color: cores.preto,
-    fontWeight: "700",
+    fontWeight: "800",
     letterSpacing: 1,
   },
   fundoDialog: {
@@ -550,7 +644,7 @@ const estilos = StyleSheet.create({
     width: "100%",
   },
   textoDialog: {
-    color: cores.branco,
+    color: cores.texto,
     fontSize: fonte.normal,
     lineHeight: 22,
   },
